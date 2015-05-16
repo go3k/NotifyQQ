@@ -3,8 +3,6 @@ import hudson.Launcher;
 import hudson.Extension;
 import hudson.util.FormValidation;
 import hudson.model.AbstractBuild;
-import hudson.model.JobProperty;
-import hudson.model.JobPropertyDescriptor;
 import hudson.model.BuildListener;
 import hudson.model.AbstractProject;
 import hudson.tasks.Builder;
@@ -22,12 +20,14 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import hudson.model.Result;
 
 import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import javax.xml.bind.DatatypeConverter;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -55,12 +55,9 @@ import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 public class HelloWorldBuilder extends 
     // Builder {
     Notifier {
-    // JobProperty<AbstractProject<?, ?>> {
     // private final String qqnumber;
     private final List<QQNumber> qQNumbers;
     private final String qqmessage;
-
-    public static int test = 0;
 
     private PrintStream logger;
 
@@ -91,23 +88,35 @@ public class HelloWorldBuilder extends
 
         logger = listener.getLogger();
 
-        // String temmessage = "temmessage:  ${JOB_NAME}  ${BUILD_NUMBER}  ${JOB_URL}";
-        // try
-        // {
-        //     String text = TokenMacro.expandAll( build, listener, temmessage );
-        //     logger.println(text);
-        // }
-        // catch (Exception e)
-        // {
-        //     logger.println("tokenmacro expand error.");
-        // }
+        String jobURL = "";
+        try
+        {
+            jobURL = TokenMacro.expand( build, listener, "${JOB_URL}");
+        }
+        catch (Exception e)
+        {
+            logger.println("tokenmacro expand error.");
+        }
 
-        
+        String msg = "项目：";
+        msg += build.getFullDisplayName();
+        if (build.getResult()==Result.SUCCESS)
+        {
+            msg += "---编译成功！";
+        }
+        else
+        {
+            msg += "---编译失败了...";
+        }
+
+        msg += "jenkins地址:" + jobURL;
+        msg = URLEncoder.encode(qqmessage + msg);
+        msg = msg.replaceAll("\\+", "_");
+
         for (int i = 0; i < qQNumbers.size(); i++) {
             QQNumber number = (QQNumber)qQNumbers.get(i);
-            send(GenerateMessageURL(number.GetUrlString(), qqmessage));
+            send(GenerateMessageURL(number.GetUrlString(), msg));
         }
-        logger.println("test code is: " + HelloWorldBuilder.test);
 
         return true;
     }
@@ -172,7 +181,6 @@ public class HelloWorldBuilder extends
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends 
         BuildStepDescriptor<Publisher> {
-        // JobPropertyDescriptor {
         /**
          * To persist global configuration information,
          * simply store it in a field and call save().
