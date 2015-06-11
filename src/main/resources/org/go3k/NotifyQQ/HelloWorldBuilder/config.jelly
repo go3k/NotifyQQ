@@ -40,7 +40,7 @@
   </f:entry>
   </f:advanced>
 
-  <f:entry title="QQ消息" field="qqmessage">
+  <f:entry title="安装包下载地址" field="qqmessage">
     <f:textbox />
   </f:entry>
 </j:jelly>

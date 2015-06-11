@@ -98,19 +98,20 @@ public class HelloWorldBuilder extends
             logger.println("tokenmacro expand error.");
         }
 
-        String msg = "项目：";
+        String msg = "小伙伴们，项目：";
         msg += build.getFullDisplayName();
         if (build.getResult()==Result.SUCCESS)
         {
             msg += "---编译成功！";
+            msg += "下载地址:" + qqmessage;
         }
         else
         {
             msg += "---编译失败了...";
+            msg += "jenkins地址:" + jobURL;
         }
 
-        msg += "jenkins地址:" + jobURL;
-        msg = URLEncoder.encode(qqmessage + msg);
+        msg = URLEncoder.encode(msg);
         msg = msg.replaceAll("\\+", "_");
 
         for (int i = 0; i < qQNumbers.size(); i++) {
