@@ -1,39 +1,44 @@
 package org.go3k.NotifyQQ;
-import hudson.Launcher;
 import hudson.Extension;
-import hudson.util.FormValidation;
-import hudson.model.AbstractBuild;
+import hudson.Launcher;
 import hudson.model.BuildListener;
-import hudson.model.AbstractProject;
-import hudson.tasks.Builder;
-import hudson.tasks.BuildStepDescriptor;
-import hudson.tasks.Publisher;
-import hudson.tasks.Notifier;
-import net.sf.json.JSONObject;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.QueryParameter;
-import jenkins.tasks.SimpleBuildStep;
-
-import javax.servlet.ServletException;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.List;
 import hudson.model.Result;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.BuildStepMonitor;
+import hudson.tasks.Builder;
+import hudson.tasks.Notifier;
+import hudson.tasks.Publisher;
+import hudson.util.FormValidation;
 
-import java.io.InputStream;
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
-import javax.xml.bind.DatatypeConverter;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
-import hudson.tasks.BuildStepMonitor;
+import java.util.regex.Pattern;
 
-import org.jenkinsci.plugins.tokenmacro.TokenMacro;
+import javax.servlet.ServletException;
+
+import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.concurrent.FutureCallback;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * Sample {@link Builder}.
@@ -88,10 +93,12 @@ public class HelloWorldBuilder extends
 
         logger = listener.getLogger();
 
+        Jenkins.getInstance();
         String jobURL = "";
         try
         {
-            jobURL = TokenMacro.expand( build, listener, "${JOB_URL}");
+            jobURL = build.getEnvironment(listener).expand("${JOB_URL}");
+            logger.println("jobURL = " + jobURL);
         }
         catch (Exception e)
         {
@@ -121,7 +128,7 @@ public class HelloWorldBuilder extends
 
         return true;
     }
-
+    
     private String GenerateMessageURL(String qq, String msg)
     {
         return String.format("http://127.0.0.1:5000/openqq/%s&content=%s", qq, msg);
@@ -136,6 +143,8 @@ public class HelloWorldBuilder extends
         try {
             URL targetUrl = new URL(url);
             connection = (HttpURLConnection) targetUrl.openConnection();
+            connection.setConnectTimeout(10 * 1000);
+            connection.setReadTimeout(10 * 1000);
             connection.connect();
             is = connection.getInputStream();
             InputStreamReader isr = new InputStreamReader(is);  
@@ -161,8 +170,44 @@ public class HelloWorldBuilder extends
                 connection.disconnect();  
             }
         }
+        logger.println("Send url finish");
     }
+    
+    protected void sendAsync(String url){
+    	RequestConfig requestConfig = RequestConfig.custom()
+                .setSocketTimeout(100000)
+                .setConnectTimeout(100000).build();
+    	CloseableHttpAsyncClient httpclient = HttpAsyncClients.custom().
+    			setDefaultRequestConfig(requestConfig)
+    			.build();
+    	try {
+            httpclient.start();
+            final HttpGet request = new HttpGet(url);
+            httpclient.execute(request, new FutureCallback<HttpResponse>() {
 
+                @Override
+                public void completed(final HttpResponse response) {
+                	logger.println(request.getRequestLine() + "->" + response.getStatusLine());
+                }
+
+                @Override
+                public void failed(final Exception ex) {
+                	logger.println(request.getRequestLine() + "->" + ex);
+                }
+
+                @Override
+                public void cancelled() {
+                	logger.println(request.getRequestLine() + " cancelled");
+                }
+            });
+        } catch (Exception e) {
+        	logger.println("http error." + e); 
+        } finally {
+        	try { httpclient.close(); } catch (Exception e) {}
+        }
+    	logger.println("send Done");
+    }
+    
     // Overridden for better type safety.
     // If your plugin doesn't really define any property on Descriptor,
     // you don't have to do this.
